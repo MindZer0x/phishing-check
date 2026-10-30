@@ -45,6 +45,7 @@
             "@php -r \"file_exists('.env') || copy('.env.example', '.env');\"",
             "@php artisan key:generate",
             "@php artisan migrate --force",
+            "@php -r \"exec('npm -v', \\$out); if ((int) (\\$out[0] ?? 0) < 10) { fwrite(STDERR, 'npm 10 or newer is required, found '.(\\$out[0] ?? 'none').'. See README.md.'.PHP_EOL); exit(1); }\"",
             "npm install",
             "npm run build"
         ],

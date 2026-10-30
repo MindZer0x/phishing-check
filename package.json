@@ -1,6 +1,10 @@
 {
     "$schema": "https://www.schemastore.org/package.json",
     "private": true,
+    "engines": {
+        "node": ">=22",
+        "npm": ">=10"
+    },
     "type": "module",
     "scripts": {
         "build": "vp build",
