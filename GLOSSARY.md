@@ -34,6 +34,10 @@ _Avoid_: Score, rating, threat level
 The risk level determined by the rule-based signals alone. The AI analysis may raise the risk level above it but never lower it below it.
 _Avoid_: Minimum score, baseline
 
+**Heuristic analysis**:
+The rule-based part of a check: it looks for the rule-based signals in the suspect email and so determines the heuristic floor. It always runs, with or without the AI analysis.
+_Avoid_: Heuristics check, rule engine, scan
+
 **AI analysis**:
 The part of a check in which Claude assesses the suspect email, contributes additional signals and writes the explanations.
 _Avoid_: LLM check, KI-Check
