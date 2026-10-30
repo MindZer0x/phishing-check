@@ -1,0 +1,17 @@
+# Shell profiles
+.bash_profile
+.bashrc
+.profile
+.zprofile
+.zshrc
+
+# Personal tool config
+.gitconfig
+.gitmodules
+.mcp.json
+.ripgreprc
+.claude/
+
+# Editors
+.idea
+.vscode
