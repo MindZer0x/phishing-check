@@ -3,18 +3,23 @@
 namespace App\Check;
 
 use Illuminate\Contracts\JsonSchema\JsonSchema;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 use Laravel\Ai\Attributes\Provider;
 use Laravel\Ai\Attributes\Timeout;
 use Laravel\Ai\Contracts\Agent;
 use Laravel\Ai\Contracts\HasStructuredOutput;
 use Laravel\Ai\Enums\Lab;
 use Laravel\Ai\Promptable;
+use Throwable;
 
 /**
  * Claude's assessment of a suspect email (ADR-0001, ADR-0003). The system
  * prompt holds only instructions; the suspect email is passed as delimited
  * data in the user message. Anthropic's native structured output enforces
- * the schema, except for array lengths, which are cut to size here.
+ * the schema, except for array lengths, which are cut to size here. Output
+ * that still does not match it, an API error or a timeout makes the AI
+ * analysis fail with its reason.
  */
 #[Provider(Lab::Anthropic)]
 #[Timeout(15)]
@@ -30,10 +35,20 @@ final class AiAnalysis implements Agent, HasStructuredOutput
         return filled(config('ai.providers.anthropic.key'));
     }
 
+    /**
+     * @throws AiAnalysisFailed
+     */
     public function assess(SuspectEmail $email, HeuristicAssessment $heuristics): AiAssessment
     {
-        /** @var array{riskLevel: string, summary: string, signals: list<array{title: string, explanation: string, weight: string}>, nextSteps: list<string>} $output */
-        $output = $this->prompt($this->userMessage($email, $heuristics))->toArray();
+        $message = $this->userMessage($email, $heuristics);
+
+        try {
+            $response = $this->prompt($message);
+        } catch (Throwable $exception) {
+            throw AiAnalysisFailed::causedBy($exception);
+        }
+
+        $output = $this->validated($response->toArray());
 
         return new AiAssessment(
             riskLevel: RiskLevel::from($output['riskLevel']),
@@ -83,6 +98,37 @@ final class AiAnalysis implements Agent, HasStructuredOutput
             ])->withoutAdditionalProperties())->required(),
             'nextSteps' => $schema->array()->items($schema->string())->max(2)->required(),
         ];
+    }
+
+    /**
+     * Native structured output should already match the schema; anything
+     * that still does not counts as a failed AI analysis (ADR-0001).
+     *
+     * @param  array<mixed>  $output
+     * @return array{riskLevel: string, summary: string, signals: list<array{title: string, explanation: string, weight: string}>, nextSteps: list<string>}
+     *
+     * @throws AiAnalysisFailed
+     */
+    private function validated(array $output): array
+    {
+        $validator = Validator::make($output, [
+            'riskLevel' => ['required', Rule::enum(RiskLevel::class)],
+            'summary' => ['required', 'string'],
+            'signals' => ['present', 'list'],
+            'signals.*' => ['array:title,explanation,weight'],
+            'signals.*.title' => ['required', 'string'],
+            'signals.*.explanation' => ['required', 'string'],
+            'signals.*.weight' => ['required', Rule::enum(SignalWeight::class)],
+            'nextSteps' => ['present', 'list'],
+            'nextSteps.*' => ['string'],
+        ]);
+
+        if ($validator->fails()) {
+            throw AiAnalysisFailed::invalidOutput();
+        }
+
+        /** @var array{riskLevel: string, summary: string, signals: list<array{title: string, explanation: string, weight: string}>, nextSteps: list<string>} */
+        return $validator->validated();
     }
 
     /**

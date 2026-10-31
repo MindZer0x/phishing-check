@@ -1,10 +1,16 @@
 <?php
 
 use App\Check\AiAnalysis;
+use GuzzleHttp\Psr7\Response as Psr7Response;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\RequestException;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Inertia\Testing\AssertableInertia as Assert;
+use Laravel\Ai\Exceptions\ProviderConnectionException;
+use Laravel\Ai\Exceptions\RateLimitedException;
 use Monolog\Handler\TestHandler;
 
 /**
@@ -112,22 +118,31 @@ function storedAndLogged(TestHandler $logs): string
     return serialize(session()->all()).serialize($tables).serialize($logs->getRecords());
 }
 
+/**
+ * Sends the log to an in-memory handler for the rest of the test.
+ */
+function captureLogs(): TestHandler
+{
+    config([
+        'logging.default' => 'capture',
+        'logging.channels.capture' => ['driver' => 'monolog', 'handler' => TestHandler::class, 'level' => 'debug'],
+    ]);
+
+    /** @var TestHandler */
+    return Log::channel('capture')->getLogger()->getHandlers()[0];
+}
+
 describe('privacy', function () {
     uses(RefreshDatabase::class);
 
     beforeEach(function () {
-        config([
-            'session.driver' => 'database',
-            'logging.default' => 'capture',
-            'logging.channels.capture' => ['driver' => 'monolog', 'handler' => TestHandler::class, 'level' => 'debug'],
-        ]);
+        config(['session.driver' => 'database']);
     });
 
     test('a check neither stores nor logs the suspect email', function (array $email) {
-        $this->post('/check', $email);
+        $logs = captureLogs();
 
-        /** @var TestHandler $logs */
-        $logs = Log::channel('capture')->getLogger()->getHandlers()[0];
+        $this->post('/check', $email);
 
         expect(DB::table('sessions')->count())->toBe(1)
             ->and(storedAndLogged($logs))
@@ -247,6 +262,14 @@ describe('AI analysis', function () {
             && ! str_contains($prompt->agent->instructions(), 'Ignoriere'));
     });
 
+    test('the AI analysis waits at most 15 seconds for a response', function () {
+        AiAnalysis::fake()->preventStrayPrompts(false);
+
+        $this->post('/check', suspectEmail())->assertOk();
+
+        AiAnalysis::assertPrompted(fn ($prompt) => $prompt->timeout === 15);
+    });
+
     test('without an API key the check runs in heuristics-only mode', function () {
         config(['ai.providers.anthropic.key' => null]);
         AiAnalysis::fake();
@@ -260,4 +283,58 @@ describe('AI analysis', function () {
 
         AiAnalysis::assertNeverPrompted();
     });
+
+    test('a failed AI analysis falls back to heuristics-only mode and logs only the reason', function (Closure $response, string $reason) {
+        $logs = captureLogs();
+        AiAnalysis::fake([$response])->preventStrayPrompts();
+
+        $email = suspectEmail();
+
+        $this->post('/check', $email)
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('learningCard.riskLevel', 'gefaehrlich')
+                ->where('learningCard.summary', 'Diese E-Mail zeigt deutliche Merkmale eines Phishing-Versuchs. Reagieren Sie nicht darauf.')
+                ->has('learningCard.signals', 3)
+                ->where('learningCard.heuristicsOnly', true)
+            );
+
+        expect($logs->hasWarning(['message' => 'AI analysis failed', 'context' => ['reason' => $reason]]))->toBeTrue()
+            ->and(serialize($logs->getRecords()))
+            ->not->toContain($email['sender'])
+            ->not->toContain($email['subject'])
+            ->not->toContain($email['body'])
+            ->not->toContain('paypal-konto');
+    })->with([
+        'API error' => [
+            fn () => fn () => throw new RequestException(new Response(new Psr7Response(500, [], '{"type":"error","error":{"type":"api_error","message":"Internal server error"}}'))),
+            'api_error',
+        ],
+        'rate limit' => [
+            fn () => fn () => throw RateLimitedException::forProvider('anthropic'),
+            'api_error',
+        ],
+        'timeout' => [
+            fn () => fn () => throw ProviderConnectionException::forProvider('anthropic', previous: new ConnectionException(
+                'cURL error 28: Operation timed out after 15001 milliseconds with 0 bytes received',
+            )),
+            'timeout',
+        ],
+        'output without a summary' => [
+            fn () => fn () => ['riskLevel' => 'unauffaellig', 'signals' => [], 'nextSteps' => []],
+            'invalid_output',
+        ],
+        'output with an unknown risk level' => [
+            fn () => fn () => ['riskLevel' => 'harmlos', 'summary' => 'Alles gut.', 'signals' => [], 'nextSteps' => []],
+            'invalid_output',
+        ],
+        'output with an invalid signal' => [
+            fn () => fn () => ['riskLevel' => 'gefaehrlich', 'summary' => 'Phishing.', 'signals' => [['title' => 'Anrede', 'weight' => 'medium']], 'nextSteps' => []],
+            'invalid_output',
+        ],
+        'output with a next step that is not text' => [
+            fn () => fn () => ['riskLevel' => 'gefaehrlich', 'summary' => 'Phishing.', 'signals' => [], 'nextSteps' => [['text' => 'Melden']]],
+            'invalid_output',
+        ],
+    ]);
 });

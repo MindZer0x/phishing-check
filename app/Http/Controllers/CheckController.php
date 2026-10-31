@@ -3,9 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Check\AiAnalysis;
+use App\Check\AiAnalysisFailed;
 use App\Check\HeuristicAnalysis;
+use App\Check\HeuristicAssessment;
 use App\Check\LearningCard;
+use App\Check\SuspectEmail;
 use App\Http\Requests\CheckRequest;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -21,12 +25,27 @@ class CheckController extends Controller
         $email = $request->suspectEmail();
         $assessment = $heuristics->analyse($email);
 
-        $learningCard = AiAnalysis::isConfigured()
-            ? LearningCard::fromHeuristicsAndAi($assessment, $ai->assess($email, $assessment))
-            : LearningCard::fromHeuristics($assessment);
-
         return Inertia::render('Home', [
-            'learningCard' => $learningCard->toArray(),
+            'learningCard' => $this->learningCard($email, $assessment, $ai)->toArray(),
         ]);
+    }
+
+    /**
+     * Without an API key, or when the AI analysis fails, the check runs in
+     * heuristics-only mode. A failure is logged with its reason only.
+     */
+    private function learningCard(SuspectEmail $email, HeuristicAssessment $assessment, AiAnalysis $ai): LearningCard
+    {
+        if (! AiAnalysis::isConfigured()) {
+            return LearningCard::fromHeuristics($assessment);
+        }
+
+        try {
+            return LearningCard::fromHeuristicsAndAi($assessment, $ai->assess($email, $assessment));
+        } catch (AiAnalysisFailed $failure) {
+            Log::warning('AI analysis failed', ['reason' => $failure->reason->value]);
+
+            return LearningCard::fromHeuristics($assessment);
+        }
     }
 }
