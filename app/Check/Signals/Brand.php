@@ -23,8 +23,6 @@ final readonly class Brand
      */
     public function isNamedIn(string $text): bool
     {
-        $words = array_map(fn (string $word): string => preg_quote($word, '/'), explode(' ', $this->name));
-
-        return preg_match('/(?<![\p{L}\p{N}])'.implode('[\s-]*', $words).'(?![\p{L}\p{N}])/iu', $text) === 1;
+        return Phrases::anyIn($text, [$this->name]);
     }
 }

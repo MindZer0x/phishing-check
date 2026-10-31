@@ -14,6 +14,14 @@ final readonly class SuspectEmail
     ) {}
 
     /**
+     * Subject and body, for signals that look at the wording.
+     */
+    public function text(): string
+    {
+        return $this->subject."\n".$this->body;
+    }
+
+    /**
      * The display name of a sender in the "Name <address>" form, without
      * quotes, or an empty string for a bare address.
      */

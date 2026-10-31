@@ -26,13 +26,14 @@ test('a check shows a learning card with the risk level, signals and next steps'
             ->component('Home')
             ->where('learningCard.riskLevel', 'gefaehrlich')
             ->whereType('learningCard.summary', 'string')
-            ->has('learningCard.signals', 2)
+            ->has('learningCard.signals', 3)
             ->where('learningCard.signals.0.title', 'Linktext und Linkziel passen nicht zusammen')
             ->where('learningCard.signals.0.weight', 'strong')
             ->where('learningCard.signals.0.source', 'rules')
             ->whereType('learningCard.signals.0.explanation', 'string')
             ->where('learningCard.signals.1.title', 'Markenname in fremder Domain')
             ->where('learningCard.signals.1.weight', 'weak')
+            ->where('learningCard.signals.2.title', 'Zeitdruck oder Drohung')
             ->where('learningCard.nextSteps', fn ($steps) => collect($steps)->contains(
                 'Klicken Sie auf keine Links und öffnen Sie keine Anhänge.',
             ))

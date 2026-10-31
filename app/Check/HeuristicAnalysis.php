@@ -4,10 +4,14 @@ namespace App\Check;
 
 use App\Check\Signals\Brand;
 use App\Check\Signals\BrandNameInUnrelatedDomain;
+use App\Check\Signals\DangerousAttachmentType;
 use App\Check\Signals\DisplayNameDoesNotMatchSenderDomain;
+use App\Check\Signals\InstructionsAddressedToAi;
 use App\Check\Signals\LinkTargetIsShortenerOrIpAddress;
 use App\Check\Signals\LinkTextPointsToDifferentDomain;
 use App\Check\Signals\LookalikeDomain;
+use App\Check\Signals\PressureLanguage;
+use App\Check\Signals\RequestForCredentialsOrPayment;
 
 /**
  * Runs the rule-based signals against a suspect email.
@@ -22,7 +26,7 @@ final class HeuristicAnalysis
     /**
      * All rule-based signals, using the lists from config/check.php.
      *
-     * @param  array{brands: list<string>, brand_owned_domains: list<string>, free_mail_domains: list<string>, organisation_words: list<string>, url_shorteners: list<string>}  $config
+     * @param  array{brands: list<string>, brand_owned_domains: list<string>, free_mail_domains: list<string>, organisation_words: list<string>, url_shorteners: list<string>, pressure_phrases: list<string>, sensitive_data: list<string>, request_words: list<string>, dangerous_attachment_extensions: list<string>, ai_instruction_phrases: list<string>}  $config
      */
     public static function fromConfig(array $config): self
     {
@@ -34,6 +38,10 @@ final class HeuristicAnalysis
             new BrandNameInUnrelatedDomain($brands, $config['brand_owned_domains']),
             new LinkTargetIsShortenerOrIpAddress($config['url_shorteners']),
             new DisplayNameDoesNotMatchSenderDomain($brands, $config['free_mail_domains'], $config['organisation_words']),
+            new PressureLanguage($config['pressure_phrases']),
+            new RequestForCredentialsOrPayment($config['sensitive_data'], $config['request_words']),
+            new DangerousAttachmentType($config['dangerous_attachment_extensions']),
+            new InstructionsAddressedToAi($config['ai_instruction_phrases']),
         ]);
     }
 

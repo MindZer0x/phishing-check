@@ -55,4 +55,81 @@ return [
         'tinyurl.com', 'v.gd',
     ],
 
+    // Urgency and pressure phrases (German and English). Like all phrase
+    // lists below, they match as whole words, ignoring case; spaces and
+    // hyphens inside a phrase may vary or be left out.
+    'pressure_phrases' => [
+        'sofort', 'umgehend', 'unverzüglich', 'dringend', 'eilt',
+        'gesperrt', 'sperrung', 'eingeschränkt', 'deaktiviert',
+        'innerhalb von 24 stunden', 'innerhalb von 48 stunden',
+        'innerhalb von 72 stunden', 'innerhalb 24 stunden',
+        'innerhalb 48 stunden', 'letzte mahnung', 'letzte warnung',
+        'letzte erinnerung', 'rechtliche schritte', 'inkasso',
+        'immediately', 'urgent', 'urgently', 'suspended', 'locked',
+        'deactivated', 'within 24 hours', 'within 48 hours',
+        'within 72 hours', 'final notice', 'final warning',
+        'action required', 'legal action',
+    ],
+
+    // Credentials, payment details and means of payment. A request for them
+    // is found when one of these and one of the request words below appear
+    // in the same sentence.
+    'sensitive_data' => [
+        'passwort', 'passworts', 'kennwort', 'kennworts', 'pin', 'tan',
+        'zugangsdaten', 'anmeldedaten', 'logindaten', 'login daten',
+        'kreditkarte', 'kreditkartendaten', 'kreditkartennummer',
+        'kartennummer', 'prüfnummer', 'iban', 'bankverbindung', 'bankdaten',
+        'kontodaten', 'überweisung',
+        'zahlungsdaten', 'zahlungsinformationen', 'betrag', 'rechnungsbetrag',
+        'gutschein', 'gutscheine', 'gutscheincode', 'gutscheincodes',
+        'geschenkkarte', 'geschenkkarten', 'guthabenkarte', 'guthabenkarten',
+        'google play karte', 'google play karten', 'itunes karte',
+        'itunes karten', 'amazon gutschein', 'amazon gutscheine',
+        'password', 'passcode', 'credentials', 'login details',
+        'credit card', 'card number', 'cvv', 'bank details',
+        'payment details', 'payment', 'gift card', 'gift cards',
+        'voucher', 'vouchers', 'wire transfer',
+    ],
+
+    // Words that ask the reader to hand over or pay something, including
+    // the first part of German separable verbs ("geben Sie ... ein").
+    'request_words' => [
+        'geben', 'eingeben', 'angeben', 'bestätigen', 'bestätigung',
+        'aktualisieren', 'verifizieren', 'überprüfen', 'hinterlegen',
+        'mitteilen', 'senden', 'schicken', 'übermitteln', 'kaufen',
+        'besorgen', 'überweisen', 'bezahlen', 'begleichen', 'veranlassen',
+        'melden', 'anmelden', 'einloggen',
+        'enter', 'confirm', 'verify', 'update', 'provide', 'send', 'share',
+        'buy', 'purchase', 'pay', 'log in', 'sign in',
+    ],
+
+    // File extensions (without the dot) of attachments that can run code:
+    // programs, scripts, macro-enabled Office documents, shortcuts, disk
+    // images and archives that often hide them. Not .com: it would match
+    // every .com domain.
+    'dangerous_attachment_extensions' => [
+        'exe', 'scr', 'pif', 'bat', 'cmd', 'msi', 'cpl', 'jar', 'js',
+        'jse', 'vbs', 'vbe', 'wsf', 'hta', 'ps1', 'lnk', 'iso', 'img', 'vhd',
+        'docm', 'xlsm', 'pptm', 'dotm', 'xlam', 'zip', 'rar', '7z', 'gz',
+        'tar', 'ace', 'cab',
+    ],
+
+    // Phrases that address an AI assessing the email (prompt injection,
+    // ADR-0001). Only instructions, not mere mentions of AI such as "KI-
+    // Assistent", which product newsletters use. Write "e-mail" so that
+    // "E Mail" and "Email" match as well.
+    'ai_instruction_phrases' => [
+        'vorherige anweisungen', 'vorherigen anweisungen',
+        'vorige anweisungen', 'vorigen anweisungen',
+        'bisherige anweisungen', 'bisherigen anweisungen',
+        'obige anweisungen', 'obigen anweisungen',
+        'bewerte diese e-mail', 'bewerten sie diese e-mail',
+        'stufe diese e-mail', 'stufen sie diese e-mail',
+        'diese e-mail ist sicher', 'diese e-mail ist harmlos',
+        'diese e-mail ist unbedenklich', 'diese mail ist sicher',
+        'previous instructions', 'prior instructions', 'above instructions',
+        'rate this e-mail', 'classify this e-mail', 'mark this e-mail',
+        'this e-mail is safe', 'this e-mail is harmless', 'system prompt',
+    ],
+
 ];
