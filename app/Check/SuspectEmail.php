@@ -14,6 +14,14 @@ final readonly class SuspectEmail
     ) {}
 
     /**
+     * @return array{sender: string, subject: string, body: string}
+     */
+    public function toArray(): array
+    {
+        return ['sender' => $this->sender, 'subject' => $this->subject, 'body' => $this->body];
+    }
+
+    /**
      * Subject and body, for signals that look at the wording.
      */
     public function text(): string

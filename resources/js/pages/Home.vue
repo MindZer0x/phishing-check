@@ -7,12 +7,22 @@ import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
 import LearningCard from '@/components/LearningCard.vue';
 import { Button } from '@/components/ui/button';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
-import type { LearningCard as LearningCardData } from '@/types/check';
+import type {
+    ExampleEmail,
+    LearningCard as LearningCardData,
+} from '@/types/check';
 
 defineProps<{
+    exampleEmails: ExampleEmail[];
     learningCard?: LearningCardData;
 }>();
 
@@ -23,6 +33,16 @@ const form = useForm({
 });
 
 const tooManyChecks = ref(false);
+
+/**
+ * Only fills the form; the user still submits the check.
+ */
+function loadExample(example: ExampleEmail) {
+    form.clearErrors();
+    form.sender = example.sender;
+    form.subject = example.subject;
+    form.body = example.body;
+}
 
 function check() {
     tooManyChecks.value = false;
@@ -49,6 +69,21 @@ function check() {
     />
 
     <form class="space-y-6" @submit.prevent="check">
+        <DropdownMenu>
+            <DropdownMenuTrigger as-child>
+                <Button type="button" variant="outline">Beispiel laden</Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+                <DropdownMenuItem
+                    v-for="example in exampleEmails"
+                    :key="example.label"
+                    @select="loadExample(example)"
+                >
+                    {{ example.label }}
+                </DropdownMenuItem>
+            </DropdownMenuContent>
+        </DropdownMenu>
+
         <div class="grid gap-2">
             <Label for="sender">Absender</Label>
             <Input

@@ -18,3 +18,10 @@ export type LearningCard = {
     nextSteps: string[];
     heuristicsOnly: boolean;
 };
+
+export type ExampleEmail = {
+    label: string;
+    sender: string;
+    subject: string;
+    body: string;
+};

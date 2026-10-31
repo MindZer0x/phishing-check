@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Check\AiAnalysis;
 use App\Check\AiAnalysisFailed;
+use App\Check\ExampleEmail;
 use App\Check\HeuristicAnalysis;
 use App\Check\HeuristicAssessment;
 use App\Check\LearningCard;
@@ -26,6 +27,7 @@ class CheckController extends Controller
         $assessment = $heuristics->analyse($email);
 
         return Inertia::render('Home', [
+            'exampleEmails' => ExampleEmail::forForm(),
             'learningCard' => $this->learningCard($email, $assessment, $ai)->toArray(),
         ]);
     }

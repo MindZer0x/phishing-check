@@ -137,11 +137,7 @@ final class AiAnalysis implements Agent, HasStructuredOutput
      */
     private function userMessage(SuspectEmail $email, HeuristicAssessment $heuristics): string
     {
-        $data = json_encode([
-            'sender' => $email->sender,
-            'subject' => $email->subject,
-            'body' => $email->body,
-        ], JSON_HEX_TAG | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+        $data = json_encode($email->toArray(), JSON_HEX_TAG | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
 
         $found = $heuristics->signals === []
             ? 'keine'
