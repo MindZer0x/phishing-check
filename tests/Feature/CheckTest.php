@@ -101,6 +101,35 @@ test('the body may be at most 20,000 characters long', function () {
         ->assertSessionHasErrors('body');
 });
 
+test('sender, subject and body must be valid UTF-8', function (string $field, string $value, string $message) {
+    config(['ai.providers.anthropic.key' => 'test-key']);
+    AiAnalysis::fake();
+
+    $this->post('/check', suspectEmail([$field => $value]))
+        ->assertSessionHasErrors([$field => $message]);
+
+    AiAnalysis::assertNeverPrompted();
+})->with([
+    'sender' => ['sender', "service@pay\xFFpal.com", 'Der Absender enthält ungültige Zeichen.'],
+    'subject' => ['subject', "Ihr Konto \xC3\x28 wurde eingeschränkt", 'Der Betreff enthält ungültige Zeichen.'],
+    'body' => ['body', "Bitte bestätigen Sie \xE2\x82 Ihre Daten.", 'Der Text der E-Mail enthält ungültige Zeichen.'],
+]);
+
+test('valid UTF-8 outside ASCII is accepted', function () {
+    config(['ai.providers.anthropic.key' => 'test-key']);
+    AiAnalysis::fake()->preventStrayPrompts(false);
+
+    $this->post('/check', suspectEmail([
+        'sender' => 'Pаypаl Sеrvicе 🔒 <service@paypal-konto.example.ru>',
+        'subject' => 'Ihr Konto wurde eingeschränkt ⚠️',
+        'body' => 'Bitte bestätigen Sie Ihre Daten: https://pаypal.com/login',
+    ]))
+        ->assertSessionHasNoErrors()
+        ->assertOk();
+
+    AiAnalysis::assertPrompted(fn ($prompt) => str_contains($prompt->prompt, 'pаypal.com'));
+});
+
 test('validation errors are in German', function () {
     $this->post('/check', suspectEmail(['subject' => '']))
         ->assertSessionHasErrors(['subject' => 'Bitte geben Sie den Betreff an.']);
@@ -152,6 +181,7 @@ describe('privacy', function () {
     })->with([
         'successful check' => [suspectEmail()],
         'failed validation' => [suspectEmail(['sender' => 'kein-absender'])],
+        'invalid UTF-8' => [suspectEmail(['body' => "Bitte bestätigen Sie \xE2\x82 Ihre Daten."])],
     ]);
 });
 

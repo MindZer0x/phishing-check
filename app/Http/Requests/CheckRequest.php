@@ -17,9 +17,9 @@ class CheckRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'sender' => ['required', 'string', 'max:320', $this->senderAddress(...)],
-            'subject' => ['required', 'string', 'max:998'],
-            'body' => ['required', 'string', 'max:20000'],
+            'sender' => ['required', 'string', $this->validUtf8(...), 'max:320', $this->senderAddress(...)],
+            'subject' => ['required', 'string', $this->validUtf8(...), 'max:998'],
+            'body' => ['required', 'string', $this->validUtf8(...), 'max:20000'],
         ];
     }
 
@@ -54,6 +54,21 @@ class CheckRequest extends FormRequest
             subject: $this->string('subject')->toString(),
             body: $this->string('body')->toString(),
         );
+    }
+
+    /**
+     * Browsers always submit valid UTF-8, so only hand-crafted requests fail
+     * here. Letting them through would break the AI analysis prompt.
+     */
+    private function validUtf8(string $attribute, mixed $value, Closure $fail): void
+    {
+        if (is_string($value) && ! mb_check_encoding($value, 'UTF-8')) {
+            $fail(match ($attribute) {
+                'sender' => 'Der Absender enthält ungültige Zeichen.',
+                'subject' => 'Der Betreff enthält ungültige Zeichen.',
+                default => 'Der Text der E-Mail enthält ungültige Zeichen.',
+            });
+        }
     }
 
     /**
