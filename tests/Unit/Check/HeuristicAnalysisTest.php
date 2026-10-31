@@ -105,6 +105,12 @@ test('ordinary links and numbers are not taken for shorteners or IP addresses', 
     'email address' => 'Fragen an support@example.com',
 ]);
 
+test('a display name brand found in the sender domain fits the sender', function () {
+    $assessment = heuristicAnalysis()->analyse(suspectEmailFrom('Sparkasse KölnBonn <info@sparkasse-koelnbonn.de>'));
+
+    expect(signalsIn($assessment))->not->toHaveKey('Absendername passt nicht zur Absenderadresse');
+});
+
 test('a sender display name that does not match the sender domain is a weak signal', function (string $sender) {
     $assessment = heuristicAnalysis()->analyse(suspectEmailFrom($sender));
 
@@ -130,7 +136,6 @@ test('a sender display name that fits the sender is not a signal', function (str
     'quoted person name with umlauts' => '"Jürgen Müller" <juergen.mueller@web.de>',
     'brand from its own domain' => 'PayPal <service@paypal.de>',
     'brand from its own subdomain' => 'Microsoft account team <account-security-noreply@accountprotection.microsoft.com>',
-    'brand inside a longer domain' => 'Sparkasse KölnBonn <info@sparkasse-koelnbonn.de>',
     'brand with a space and a hyphenated domain' => 'Deutsche Bank <info@deutsche-bank.de>',
     'brand name only as part of a word' => 'Ingo Schmidt <ingo.schmidt@gmail.com>',
     'organisation from a company domain' => 'Kundenservice <service@example-shop.de>',
@@ -144,7 +149,8 @@ test('a sender display name that fits the sender is not a signal', function (str
 test('a domain that imitates a well-known brand is a strong signal', function (SuspectEmail $email) {
     $assessment = heuristicAnalysis()->analyse($email);
 
-    expect(signalsIn($assessment))->toBe(['Täuschend ähnliche Domain' => SignalWeight::Strong])
+    // A lookalike can also contain the brand name itself, e.g. paypall.
+    expect(signalsIn($assessment))->toHaveKey('Täuschend ähnliche Domain', SignalWeight::Strong)
         ->and($assessment->heuristicFloor)->toBe(RiskLevel::Gefaehrlich);
 })->with([
     'digit instead of a letter in the sender' => fn () => suspectEmailFrom('service@paypa1.com'),
@@ -161,17 +167,30 @@ test('a domain that imitates a well-known brand is a strong signal', function (S
     'domain written entirely in Cyrillic lookalikes' => fn () => suspectEmailWithBody('Ihre ID wurde gesperrt: https://аррӏе.com/id'),
 ]);
 
+test('a brand domain placed inside another domain is a lookalike domain', function (SuspectEmail $email) {
+    $assessment = heuristicAnalysis()->analyse($email);
+
+    // The brand name in a foreign domain is found as well, as a weak signal.
+    expect(signalsIn($assessment))->toHaveKey('Täuschend ähnliche Domain', SignalWeight::Strong)
+        ->and($assessment->heuristicFloor)->toBe(RiskLevel::Gefaehrlich);
+})->with([
+    'brand domain as subdomain' => fn () => suspectEmailWithBody('Bitte bestätigen: https://paypal.com.secure-login.example.ru/verify'),
+    'brand domain with www as subdomain' => fn () => suspectEmailWithBody('Zum Konto: www.sparkasse.de.konto-check.example.net/login'),
+    'hyphenated brand domain as subdomain' => fn () => suspectEmailWithBody('<a href="https://deutsche-bank.de.kunden.example.com/">Anmelden</a>'),
+    'brand domain as subdomain of the sender' => fn () => suspectEmailFrom('service@amazon.de.versand-info.example.org'),
+    'brand domain with a less common top-level domain' => fn () => suspectEmailWithBody('Compte: https://paypal.fr.konto-check.example.ru/'),
+    'brand domain written together as subdomain' => fn () => suspectEmailWithBody('Freigabe: https://deutschebank.de.tan-check.example.com/'),
+]);
+
 test('genuine brand domains and ordinary domains are not taken for lookalikes', function (SuspectEmail $email) {
     expect(heuristicAnalysis()->analyse($email)->signals)->toBeEmpty();
 })->with([
     'genuine brand domain' => fn () => suspectEmailWithBody('Ihre Zahlung: https://www.paypal.com/myaccount'),
     'genuine brand sender' => fn () => suspectEmailFrom('service@paypal.de'),
     'genuine brand on a country-code domain' => fn () => suspectEmailWithBody('Bestellungen: https://www.amazon.co.uk/orders'),
-    'brand combined with other words' => fn () => suspectEmailWithBody('Neu: https://www.ebay-kleinanzeigen.de/'),
     'domain with umlauts' => fn () => suspectEmailWithBody('Unser Angebot: https://www.müller-bäckerei.de/brot'),
     'domain with umlauts as punycode' => fn () => suspectEmailWithBody('Unser Angebot: https://www.xn--mller-bckerei-hfb76a.de/brot'),
     'word one letter away from a brand' => fn () => suspectEmailFrom('newsletter@bt-telecom.co.uk'),
-    'plural of a brand inside a domain' => fn () => suspectEmailWithBody('Exposé: https://www.sparkassen-immobilien.de/objekt/123'),
     'other service one letter away from a brand' => fn () => suspectEmailWithBody('Bezahlen mit https://paypay.ne.jp/'),
     'word close to a short brand' => fn () => suspectEmailWithBody('Bewerben Sie sich: https://apply.example.com/jobs'),
     'domain that contains a brand name inside a word' => fn () => suspectEmailWithBody('Doku: https://storage.googleapis.com/bucket/file'),
@@ -179,6 +198,37 @@ test('genuine brand domains and ordinary domains are not taken for lookalikes', 
         'Example Shop Newsletter <newsletter@example-shop.de>',
         "Hallo,\n\nunsere Herbstaktion startet: https://www.example-shop.de/herbst\nAbmelden: https://www.example-shop.de/abmelden",
     ),
+]);
+
+test('a brand name in a domain that does not belong to the brand is a weak signal', function (SuspectEmail $email) {
+    $assessment = heuristicAnalysis()->analyse($email);
+
+    expect(signalsIn($assessment))->toBe(['Markenname in fremder Domain' => SignalWeight::Weak])
+        ->and($assessment->heuristicFloor)->toBe(RiskLevel::Verdaechtig);
+})->with([
+    'brand combined with a word' => fn () => suspectEmailWithBody('Konto prüfen: https://paypal-secure.example.ru/login'),
+    'brand after a word' => fn () => suspectEmailWithBody('<a href="https://kundenkonto-amazon.com/">Bestellung ansehen</a>'),
+    'brand as subdomain' => fn () => suspectEmailWithBody('Sendungsverfolgung: https://dhl.paket-status.example.net/track'),
+    'multi-word brand' => fn () => suspectEmailWithBody('Freigabe unter https://deutsche-bank-tan.example.com/'),
+    'brand in the sender domain' => fn () => suspectEmailFrom('noreply@netflix-billing.example.com'),
+    'brand written together with a word' => fn () => suspectEmailWithBody('Konto prüfen: https://paypalsecure.example.ru/login'),
+    'brand written together with a word in front' => fn () => suspectEmailWithBody('Bestellung: https://meinamazon.example.com/'),
+    'multi-word brand written together' => fn () => suspectEmailWithBody('Freigabe unter https://deutschebank-secure.example.com/'),
+    // Accepted false positives: genuine sites can carry a brand name, too.
+    'genuine domain combining a brand with a word' => fn () => suspectEmailWithBody('Neu: https://www.ebay-kleinanzeigen.de/'),
+    'genuine domain with a brand written together' => fn () => suspectEmailWithBody('Exposé: https://www.sparkassen-immobilien.de/objekt/123'),
+]);
+
+test('a brand name in its own domain or inside a longer word is not a signal', function (SuspectEmail $email) {
+    expect(heuristicAnalysis()->analyse($email)->signals)->toBeEmpty();
+})->with([
+    'brand domain' => fn () => suspectEmailWithBody('Ihre Zahlung: https://www.paypal.com/myaccount'),
+    'brand domain with another top-level domain' => fn () => suspectEmailFrom('service@paypal.de'),
+    'subdomain of the brand domain' => fn () => suspectEmailWithBody('Anmelden: https://login.microsoftonline.com/ und https://account.microsoft.com/'),
+    'hyphenated brand domain' => fn () => suspectEmailFrom('info@deutsche-bank.de'),
+    'brand inside a longer word' => fn () => suspectEmailWithBody('Doku: https://storage.googleapis.com/bucket/file'),
+    'short brand inside a word' => fn () => suspectEmailWithBody('Hotel: https://www.booking.com/ und https://groups.example.com/'),
+    'domain a brand uses for its own content' => fn () => suspectEmailWithBody('<img src="https://www.paypalobjects.com/logo.png"> https://fonts.googleapis.com/css https://s3.amazonaws.com/bucket/file'),
 ]);
 
 /**

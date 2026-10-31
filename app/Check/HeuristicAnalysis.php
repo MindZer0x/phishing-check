@@ -2,6 +2,8 @@
 
 namespace App\Check;
 
+use App\Check\Signals\Brand;
+use App\Check\Signals\BrandNameInUnrelatedDomain;
 use App\Check\Signals\DisplayNameDoesNotMatchSenderDomain;
 use App\Check\Signals\LinkTargetIsShortenerOrIpAddress;
 use App\Check\Signals\LinkTextPointsToDifferentDomain;
@@ -20,15 +22,18 @@ final class HeuristicAnalysis
     /**
      * All rule-based signals, using the lists from config/check.php.
      *
-     * @param  array{brands: list<string>, free_mail_domains: list<string>, organisation_words: list<string>, url_shorteners: list<string>}  $config
+     * @param  array{brands: list<string>, brand_owned_domains: list<string>, free_mail_domains: list<string>, organisation_words: list<string>, url_shorteners: list<string>}  $config
      */
     public static function fromConfig(array $config): self
     {
+        $brands = array_map(fn (string $name): Brand => new Brand($name), $config['brands']);
+
         return new self([
             new LinkTextPointsToDifferentDomain,
-            new LookalikeDomain($config['brands']),
+            new LookalikeDomain($brands),
+            new BrandNameInUnrelatedDomain($brands, $config['brand_owned_domains']),
             new LinkTargetIsShortenerOrIpAddress($config['url_shorteners']),
-            new DisplayNameDoesNotMatchSenderDomain($config['brands'], $config['free_mail_domains'], $config['organisation_words']),
+            new DisplayNameDoesNotMatchSenderDomain($brands, $config['free_mail_domains'], $config['organisation_words']),
         ]);
     }
 

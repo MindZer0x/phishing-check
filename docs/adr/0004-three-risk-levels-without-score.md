@@ -6,5 +6,7 @@ The heuristic floor follows from the signal weights: no signals means Unauffäll
 
 | Weight | Signals |
 | ------ | ------- |
-| strong | link text and link target point to different domains; lookalike domain (typosquatting, IDN homograph); request for credentials, payment or gift cards; dangerous attachment type mentioned; instructions addressed to an AI |
-| weak   | urgency or pressure language; URL shortener or raw IP address as link target; sender display name does not match the sender domain |
+| strong | link text and link target point to different domains; lookalike domain (typosquatting, IDN homograph, a brand domain placed in front of another domain such as `paypal.com.example.ru`); request for credentials, payment or gift cards; dangerous attachment type mentioned; instructions addressed to an AI |
+| weak   | urgency or pressure language; URL shortener or raw IP address as link target; sender display name does not match the sender domain; brand name in a domain that does not belong to the brand |
+
+A brand name inside an unrelated domain (`paypal-secure.example.ru`, `paypalsecure.example.ru`) is only weak: genuine companies use such domains too (`sparkasse-koelnbonn.de`), and the heuristic analysis has no list of every brand's official domains. We accept that genuine emails using them come out Verdächtig, preferring a false positive to a missed phishing attempt. Only domains brands use in nearly every genuine email, such as `paypalobjects.com` for images, are exempt via a list in `config/check.php`.

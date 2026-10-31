@@ -2,6 +2,8 @@
 
 namespace App\Check\Signals;
 
+use App\Check\SuspectEmail;
+
 /**
  * Finds and normalises the hosts that links in a suspect email point to.
  */
@@ -28,6 +30,16 @@ final class Hosts
         '#(?:https?:)?//[^\s"\'<>]+#iu',
         '#(?<![\w@.\-/])(?:www\.[\p{L}\p{N}.\-]+|[\p{L}\p{N}\-]+(?:\.[\p{L}\p{N}\-]+)+/[^\s"\'<>]*)#iu',
     ];
+
+    /**
+     * The sender host and the hosts of all link targets in a suspect email.
+     *
+     * @return list<string>
+     */
+    public static function in(SuspectEmail $email): array
+    {
+        return array_values(array_filter([self::ofAddress($email->senderAddress()), ...self::linkTargetsIn($email->body)]));
+    }
 
     /**
      * The hosts of all link targets in the given text.
@@ -128,6 +140,35 @@ final class Hosts
             : 2;
 
         return implode('.', array_slice($labels, -$registrableLabels));
+    }
+
+    /**
+     * The labels of a host without its public suffix, e.g. login and paypa1
+     * for login.paypa1.co.uk.
+     *
+     * @return list<string>
+     */
+    public static function labelsBelowPublicSuffix(string $host): array
+    {
+        $domain = self::isIpAddress($host) ? null : self::registrableDomain($host);
+
+        if ($domain === null) {
+            return [];
+        }
+
+        $labels = explode('.', $host);
+        $suffixLabels = count(explode('.', $domain)) - 1;
+
+        return array_slice($labels, 0, count($labels) - $suffixLabels);
+    }
+
+    /**
+     * Whether a label could be a top-level domain, e.g. the "com" or "fr" in
+     * paypal.com.example.ru.
+     */
+    public static function looksLikeTopLevelDomain(string $label): bool
+    {
+        return preg_match('/^(?:\p{L}{2,3}|info)$/u', $label) === 1;
     }
 
     public static function isIpAddress(string $host): bool

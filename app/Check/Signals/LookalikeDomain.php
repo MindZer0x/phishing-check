@@ -23,7 +23,7 @@ final readonly class LookalikeDomain implements Signal
     ];
 
     /**
-     * @param  list<string>  $brands  well-known brand names, e.g. "deutsche bank"
+     * @param  list<Brand>  $brands
      */
     public function __construct(private array $brands) {}
 
@@ -34,7 +34,7 @@ final readonly class LookalikeDomain implements Signal
 
     public function explanation(): string
     {
-        return 'Eine Adresse in dieser E-Mail ahmt eine bekannte Domain nach, zum Beispiel paypa1.com statt paypal.com, oder sie enthält Buchstaben aus anderen Alphabeten, die wie normale Buchstaben aussehen. '
+        return 'Eine Adresse in dieser E-Mail ahmt eine bekannte Domain nach: zum Beispiel paypa1.com statt paypal.com, oder paypal.com.konto-check.net, das nur am Anfang wie paypal.com aussieht. Manchmal stecken auch Buchstaben aus anderen Alphabeten darin, die wie normale Buchstaben aussehen. '
             .'Auf den ersten Blick ist der Unterschied kaum zu erkennen. Rufen Sie die Seite des Unternehmens lieber selbst über die Ihnen bekannte Adresse auf.';
     }
 
@@ -45,10 +45,14 @@ final readonly class LookalikeDomain implements Signal
 
     public function isFoundIn(SuspectEmail $email): bool
     {
-        $hosts = [Hosts::ofAddress($email->senderAddress()), ...Hosts::linkTargetsIn($email->body)];
+        foreach (Hosts::in($email) as $host) {
+            $labels = Hosts::labelsBelowPublicSuffix($host);
 
-        foreach (array_filter($hosts) as $host) {
-            foreach ($this->labelsBelowPublicSuffix($host) as $label) {
+            if ($this->embedsBrandDomain($labels)) {
+                return true;
+            }
+
+            foreach ($labels as $label) {
                 if ($this->isLookalike($label)) {
                     return true;
                 }
@@ -59,23 +63,30 @@ final readonly class LookalikeDomain implements Signal
     }
 
     /**
-     * The labels of a host without its public suffix, e.g. login and paypa1
-     * for login.paypa1.co.uk.
+     * A brand's own domain placed in front of another domain, such as
+     * paypal.com.secure-login.example.ru, so that the start of the address
+     * looks right.
      *
-     * @return list<string>
+     * @param  list<string>  $labels
      */
-    private function labelsBelowPublicSuffix(string $host): array
+    private function embedsBrandDomain(array $labels): bool
     {
-        $domain = Hosts::isIpAddress($host) ? null : Hosts::registrableDomain($host);
-
-        if ($domain === null) {
-            return [];
+        for ($i = 0; $i < count($labels) - 2; $i++) {
+            if (in_array(str_replace('-', '', $labels[$i]), $this->compactBrands(), true)
+                && Hosts::looksLikeTopLevelDomain($labels[$i + 1])) {
+                return true;
+            }
         }
 
-        $labels = explode('.', $host);
-        $suffixLabels = count(explode('.', $domain)) - 1;
+        return false;
+    }
 
-        return array_slice($labels, 0, count($labels) - $suffixLabels);
+    /**
+     * @return list<string>
+     */
+    private function compactBrands(): array
+    {
+        return array_map(fn (Brand $brand): string => $brand->compact(), $this->brands);
     }
 
     /**
@@ -91,8 +102,8 @@ final readonly class LookalikeDomain implements Signal
         $parts = array_unique([str_replace('-', '', $label), ...explode('-', $label)]);
 
         foreach ($parts as $part) {
-            foreach ($this->brands as $brand) {
-                if ($this->imitates($part, str_replace(' ', '', $brand))) {
+            foreach ($this->compactBrands() as $brand) {
+                if ($this->imitates($part, $brand)) {
                     return true;
                 }
             }

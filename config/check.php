@@ -21,6 +21,13 @@ return [
         'whatsapp',
     ],
 
+    // Registrable domains that brands use themselves although the brand name
+    // is written together with other words, e.g. for images in their emails.
+    'brand_owned_domains' => [
+        'amazonaws.com', 'googleapis.com', 'googleusercontent.com',
+        'microsoftonline.com', 'paypalobjects.com',
+    ],
+
     // Registrable domains where anyone can get a free email address.
     'free_mail_domains' => [
         'aol.com', 'aol.de', 'freenet.de', 'gmail.com', 'gmx.at', 'gmx.ch',

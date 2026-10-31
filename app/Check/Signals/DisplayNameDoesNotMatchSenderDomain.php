@@ -9,7 +9,7 @@ use App\Check\SuspectEmail;
 final readonly class DisplayNameDoesNotMatchSenderDomain implements Signal
 {
     /**
-     * @param  list<string>  $brands  well-known brand names, e.g. "deutsche bank"
+     * @param  list<Brand>  $brands
      * @param  list<string>  $freeMailDomains  registrable domains anyone can get an address at
      * @param  list<string>  $organisationWords  words that make a display name look like an organisation
      */
@@ -77,9 +77,7 @@ final readonly class DisplayNameDoesNotMatchSenderDomain implements Signal
         $compactHost = $this->withoutSeparators($host);
 
         foreach ($this->brands as $brand) {
-            $wordPattern = '/(?<![\p{L}\p{N}])'.str_replace('\ ', '[\s-]*', preg_quote($brand, '/')).'(?![\p{L}\p{N}])/u';
-
-            if (preg_match($wordPattern, $name) === 1 && ! str_contains($compactHost, $this->withoutSeparators($brand))) {
+            if ($brand->isNamedIn($name) && ! str_contains($compactHost, $brand->compact())) {
                 return true;
             }
         }
