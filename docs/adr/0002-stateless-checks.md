@@ -5,4 +5,4 @@ Checks are not stored: no database table for suspect emails or results, no histo
 ## Consequences
 
 - The authentication scaffolding of the Laravel Vue starter kit is removed.
-- Error logging for a failed AI analysis records the failure reason only.
+- Error logging for a failed AI analysis records the failure reason and its cause only, never the suspect email.
