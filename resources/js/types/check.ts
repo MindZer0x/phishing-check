@@ -2,11 +2,13 @@ export type RiskLevel = 'unauffaellig' | 'verdaechtig' | 'gefaehrlich';
 
 export type SignalWeight = 'weak' | 'strong';
 
+export type SignalSource = 'rules' | 'ai';
+
 export type Signal = {
     title: string;
     explanation: string;
     weight: SignalWeight;
-    source: 'rules' | 'ai';
+    source: SignalSource;
 };
 
 export type LearningCard = {

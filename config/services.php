@@ -14,6 +14,12 @@ return [
     |
     */
 
+    // The API key is read by laravel/ai from ANTHROPIC_API_KEY (config/ai.php
+    // in the package). Without it, checks run in heuristics-only mode.
+    'anthropic' => [
+        'model' => env('ANTHROPIC_MODEL') ?: 'claude-haiku-5-5',
+    ],
+
     'postmark' => [
         'key' => env('POSTMARK_API_KEY'),
     ],

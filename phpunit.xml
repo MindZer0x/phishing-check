@@ -32,6 +32,8 @@
         <env name="SESSION_DRIVER" value="array"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
+        <!-- Heuristics-only mode unless a test configures a key and fakes the AI analysis. -->
+        <env name="ANTHROPIC_API_KEY" value=""/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
     </php>
 </phpunit>

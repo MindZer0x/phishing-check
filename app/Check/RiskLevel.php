@@ -28,7 +28,19 @@ enum RiskLevel: string
     }
 
     /**
-     * Short summary for the learning card in heuristics-only mode.
+     * The higher of two risk levels, so the AI analysis can raise the
+     * heuristic floor but never lower it (ADR-0001). Relies on the cases
+     * being declared from lowest to highest.
+     */
+    public function atLeast(self $other): self
+    {
+        $order = array_flip(array_column(self::cases(), 'value'));
+
+        return $order[$other->value] > $order[$this->value] ? $other : $this;
+    }
+
+    /**
+     * Short summary for the learning card when Claude's does not apply.
      */
     public function summary(): string
     {

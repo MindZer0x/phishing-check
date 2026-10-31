@@ -9,7 +9,12 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
-import type { LearningCard, RiskLevel, SignalWeight } from '@/types/check';
+import type {
+    LearningCard,
+    RiskLevel,
+    SignalSource,
+    SignalWeight,
+} from '@/types/check';
 
 const props = defineProps<{
     card: LearningCard;
@@ -44,6 +49,11 @@ const weightBadges: Record<
     weak: { label: 'schwaches Signal', variant: 'secondary' },
 };
 
+const sourceLabels: Record<SignalSource, string> = {
+    rules: 'erkannt durch Regeln',
+    ai: 'erkannt durch KI',
+};
+
 const riskAppearance = computed(() => appearance[props.card.riskLevel]);
 </script>
 
@@ -76,15 +86,20 @@ const riskAppearance = computed(() => appearance[props.card.riskLevel]);
                 <ul v-else class="space-y-3">
                     <li
                         v-for="signal in card.signals"
-                        :key="signal.title"
+                        :key="`${signal.source}-${signal.title}`"
                         class="rounded-md border border-border bg-background p-3"
                     >
-                        <div class="flex items-center gap-2 font-medium">
+                        <div
+                            class="flex flex-wrap items-center gap-2 font-medium"
+                        >
                             {{ signal.title }}
                             <Badge
                                 :variant="weightBadges[signal.weight].variant"
                             >
                                 {{ weightBadges[signal.weight].label }}
+                            </Badge>
+                            <Badge variant="outline">
+                                {{ sourceLabels[signal.source] }}
                             </Badge>
                         </div>
                         <p class="mt-1 text-sm text-muted-foreground">
