@@ -32,7 +32,8 @@ class CheckController extends Controller
 
     /**
      * Without an API key, or when the AI analysis fails, the check runs in
-     * heuristics-only mode. A failure is logged with its reason only.
+     * heuristics-only mode. A failure is logged with its reason and cause,
+     * never with the suspect email.
      */
     private function learningCard(SuspectEmail $email, HeuristicAssessment $assessment, AiAnalysis $ai): LearningCard
     {
@@ -43,7 +44,7 @@ class CheckController extends Controller
         try {
             return LearningCard::fromHeuristicsAndAi($assessment, $ai->assess($email, $assessment));
         } catch (AiAnalysisFailed $failure) {
-            Log::warning('AI analysis failed', ['reason' => $failure->reason->value]);
+            Log::warning('AI analysis failed', $failure->logContext());
 
             return LearningCard::fromHeuristics($assessment);
         }

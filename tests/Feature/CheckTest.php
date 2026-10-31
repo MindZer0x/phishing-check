@@ -284,7 +284,7 @@ describe('AI analysis', function () {
         AiAnalysis::assertNeverPrompted();
     });
 
-    test('a failed AI analysis falls back to heuristics-only mode and logs only the reason', function (Closure $response, string $reason) {
+    test('a failed AI analysis falls back to heuristics-only mode and logs only the reason and its cause', function (Closure $response, array $logContext) {
         $logs = captureLogs();
         AiAnalysis::fake([$response])->preventStrayPrompts();
 
@@ -299,7 +299,7 @@ describe('AI analysis', function () {
                 ->where('learningCard.heuristicsOnly', true)
             );
 
-        expect($logs->hasWarning(['message' => 'AI analysis failed', 'context' => ['reason' => $reason]]))->toBeTrue()
+        expect($logs->hasWarning(['message' => 'AI analysis failed', 'context' => $logContext]))->toBeTrue()
             ->and(serialize($logs->getRecords()))
             ->not->toContain($email['sender'])
             ->not->toContain($email['subject'])
@@ -308,33 +308,37 @@ describe('AI analysis', function () {
     })->with([
         'API error' => [
             fn () => fn () => throw new RequestException(new Response(new Psr7Response(500, [], '{"type":"error","error":{"type":"api_error","message":"Internal server error"}}'))),
-            'api_error',
+            ['reason' => 'api_error', 'exception' => RequestException::class, 'status' => 500],
         ],
         'rate limit' => [
-            fn () => fn () => throw RateLimitedException::forProvider('anthropic'),
-            'api_error',
+            fn () => fn () => throw RateLimitedException::forProvider('anthropic', previous: new RequestException(new Response(new Psr7Response(429)))),
+            ['reason' => 'api_error', 'exception' => RateLimitedException::class, 'status' => 429],
         ],
         'timeout' => [
             fn () => fn () => throw ProviderConnectionException::forProvider('anthropic', previous: new ConnectionException(
                 'cURL error 28: Operation timed out after 15001 milliseconds with 0 bytes received',
             )),
-            'timeout',
+            ['reason' => 'timeout', 'exception' => ProviderConnectionException::class],
         ],
         'output without a summary' => [
             fn () => fn () => ['riskLevel' => 'unauffaellig', 'signals' => [], 'nextSteps' => []],
-            'invalid_output',
+            ['reason' => 'invalid_output'],
         ],
         'output with an unknown risk level' => [
             fn () => fn () => ['riskLevel' => 'harmlos', 'summary' => 'Alles gut.', 'signals' => [], 'nextSteps' => []],
-            'invalid_output',
+            ['reason' => 'invalid_output'],
         ],
         'output with an invalid signal' => [
             fn () => fn () => ['riskLevel' => 'gefaehrlich', 'summary' => 'Phishing.', 'signals' => [['title' => 'Anrede', 'weight' => 'medium']], 'nextSteps' => []],
-            'invalid_output',
+            ['reason' => 'invalid_output'],
         ],
         'output with a next step that is not text' => [
             fn () => fn () => ['riskLevel' => 'gefaehrlich', 'summary' => 'Phishing.', 'signals' => [], 'nextSteps' => [['text' => 'Melden']]],
-            'invalid_output',
+            ['reason' => 'invalid_output'],
+        ],
+        'bug in the AI analysis' => [
+            fn () => fn () => throw new TypeError('Cannot assign string to property of type int'),
+            ['reason' => 'api_error', 'exception' => TypeError::class],
         ],
     ]);
 });
